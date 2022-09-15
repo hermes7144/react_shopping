@@ -3,6 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { Icon, Row, Col, Card } from 'antd';
 import { FaCode } from 'react-icons/fa';
 import ImageSlider from '../../utils/ImageSlider';
+import CheckBox from './Sections/CheckBox';
+import RadioBox from './Sections/RadioBox';
+import { continents, price } from './Sections/Datas';
+import SearchFeature from './Sections/SearchFeature';
 
 const { Meta } = Card;
 
@@ -11,6 +15,11 @@ function LandingPage() {
   const [Skip, setSkip] = useState(0);
   const [Limit, setLimit] = useState(8);
   const [PostSize, setPostSize] = useState(8);
+  const [Filters, setFilters] = useState({
+    continents: [],
+    price: [],
+  });
+  const [SearchTerms, setSearchTerms] = useState('');
 
   useEffect(() => {
     const variables = {
@@ -21,10 +30,13 @@ function LandingPage() {
   }, []);
 
   const getProducts = (variables) => {
-    console.log(variables);
     Axios.post('/api/product/getProducts', variables).then((response) => {
       if (response.data.success) {
-        setProducts([...Products, ...response.data.products]);
+        if (variables.loadMore) {
+          setProducts([...Products, ...response.data.products]);
+        } else {
+          setProducts(response.data.products);
+        }
         setPostSize(response.data.postSize);
       } else {
       }
@@ -34,7 +46,14 @@ function LandingPage() {
   const renderCards = Products.map((product, index) => {
     return (
       <Col lg={6} md={8} xs={24} key={index}>
-        <Card hoverable={true} cover={<ImageSlider images={product.images} />}>
+        <Card
+          hoverable={true}
+          cover={
+            <a href={`/product/${product._id}`}>
+              <ImageSlider images={product.images} />
+            </a>
+          }
+        >
           <Meta title={product.title} description={product.price} />
         </Card>
       </Col>
@@ -47,9 +66,58 @@ function LandingPage() {
     const variables = {
       skip: skip,
       limit: Limit,
+      loadMore: true,
     };
     getProducts(variables);
     setSkip(skip);
+  };
+
+  const showFilteredResults = (filters) => {
+    const variables = {
+      skip: 0,
+      limit: Limit,
+      filters: filters,
+    };
+
+    getProducts(variables);
+    setSkip(0);
+  };
+
+  const handlePrice = (value) => {
+    const data = price;
+
+    for (let key in data) {
+      if (data[key]._id === parseInt(value, 10)) {
+        return data[key].array;
+      }
+    }
+  };
+
+  const handleFilters = (filters, category) => {
+    const newFilters = { ...Filters };
+
+    newFilters[category] = filters;
+
+    if (category === 'price') {
+      let priceValues = handlePrice(filters);
+      newFilters[category] = priceValues;
+    }
+    showFilteredResults(newFilters);
+    setFilters(newFilters);
+  };
+
+  const updateSearchTerms = (newSearchTerm) => {
+    setSearchTerms(newSearchTerm);
+
+    const variables = {
+      skip: 0,
+      limit: Limit,
+      filters: Filters,
+      searchTerm: newSearchTerm,
+    };
+    setSkip(0);
+    setSearchTerms(newSearchTerm);
+    getProducts(variables);
   };
   return (
     <div style={{ width: '75%', margin: '3rem auto' }}>
@@ -60,11 +128,31 @@ function LandingPage() {
       </div>
 
       {/* filter */}
-
+      <Row gutter={[16, 16]}>
+        <Col lg={12} xs={24}>
+          <CheckBox
+            list={continents}
+            handleFilters={(filters) => handleFilters(filters, 'continents')}
+          />
+        </Col>
+        <Col lg={12} xs={24}>
+          <RadioBox list={price} handleFilters={(filters) => handleFilters(filters, 'price')} />
+        </Col>
+      </Row>
+      <br />
       {/* search */}
-
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '1rem' }}>
+        <SearchFeature refreshFunction={updateSearchTerms} />
+      </div>
       {Products.length === 0 ? (
-        <div style={{ display: 'flex', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            height: '300px',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
           <h2>No post yet...</h2>
         </div>
       ) : (
